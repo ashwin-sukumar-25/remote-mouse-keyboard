@@ -4,11 +4,39 @@ import java.awt.event.KeyEvent;
 import java.io.*;
 import java.net.*;
 
+/**
+ * RemoteServer
+ * ------------
+ * A cross-platform Java server that allows a mobile client
+ * to remotely control mouse and keyboard input on a PC.
+ *
+ * Features:
+ * - UDP-based discovery so the mobile app can find the PC automatically
+ * - TCP-based command channel for real-time mouse & keyboard control
+ * - Uses java.awt.Robot to simulate system-level input
+ *
+ * Supported Platforms:
+ * - Windows
+ * - Linux
+ * - macOS
+ *
+ * Author: Ashwin Sukumar
+ * License: Apache 2.0
+ */
 public class RemoteServer {
 
+    /** Port used for TCP control communication */
     private static final int TCP_PORT = 5000;
+
+    /** Port used for UDP discovery broadcast */
     private static final int UDP_PORT = 6000;
 
+    /**
+     * Entry point of the server.
+     * Starts:
+     * 1. UDP discovery listener
+     * 2. TCP control server
+     */
     public static void main(String[] args) {
         try {
             startUdpDiscovery();
@@ -18,14 +46,23 @@ public class RemoteServer {
         }
     }
 
-    // ---------------- UDP DISCOVERY ----------------
+    // ================= UDP DISCOVERY =================
+
+    /**
+     * Starts a background thread that listens for UDP broadcast messages
+     * from the mobile app.
+     *
+     * When the message "DISCOVER_REMOTE_SERVER" is received:
+     * - The server replies with its hostname
+     * - This allows the mobile app to locate the PC automatically
+     */
     private static void startUdpDiscovery() {
         new Thread(() -> {
             try {
                 DatagramSocket socket = new DatagramSocket(UDP_PORT);
                 socket.setBroadcast(true);
 
-                System.out.println("UDP discovery listening on " + UDP_PORT);
+                System.out.println("UDP discovery listening on port " + UDP_PORT);
 
                 byte[] buffer = new byte[1024];
 
@@ -37,6 +74,7 @@ public class RemoteServer {
                     String msg = new String(packet.getData(), 0, packet.getLength());
 
                     if ("DISCOVER_REMOTE_SERVER".equals(msg)) {
+
                         String pcName = InetAddress.getLocalHost().getHostName();
                         String response = "REMOTE_SERVER:" + pcName;
 
@@ -60,11 +98,25 @@ public class RemoteServer {
         }).start();
     }
 
-    // ---------------- TCP CONTROL ----------------
+    // ================= TCP CONTROL =================
+
+    /**
+     * Starts a TCP server that listens for control commands
+     * from the mobile application.
+     *
+     * Each connected client can:
+     * - Move mouse
+     * - Perform left/right clicks
+     * - Send keyboard input
+     *
+     * @throws Exception if socket or Robot initialization fails
+     */
     private static void startTcpServer() throws Exception {
+
         Robot robot = new Robot();
         ServerSocket serverSocket = new ServerSocket(TCP_PORT);
-        System.out.println("TCP server started on " + TCP_PORT);
+
+        System.out.println("TCP server started on port " + TCP_PORT);
 
         while (true) {
             Socket client = serverSocket.accept();
@@ -83,7 +135,24 @@ public class RemoteServer {
         }
     }
 
-    // ---------------- COMMANDS ----------------
+    // ================= COMMAND HANDLING =================
+
+    /**
+     * Parses and executes a command received from the client.
+     *
+     * Supported Commands:
+     * MOVE dx dy      → Moves mouse relative to current position
+     * LEFT_CLICK     → Performs left mouse click
+     * RIGHT_CLICK    → Performs right mouse click
+     * KEY x          → Types a character
+     * BACKSPACE      → Presses backspace
+     * ENTER          → Presses enter
+     * SPACE          → Presses space
+     *
+     * @param cmd   Command string from client
+     * @param robot Robot instance used for system input control
+     * @throws Exception if command parsing fails
+     */
     private static void handleCommand(String cmd, Robot robot) throws Exception {
 
         if (cmd.startsWith("MOVE")) {
@@ -126,16 +195,27 @@ public class RemoteServer {
         }
     }
 
+    /**
+     * Types a single character using the Robot API.
+     * Handles uppercase characters using SHIFT key.
+     *
+     * @param robot Robot instance
+     * @param c     Character to type
+     */
     private static void typeChar(Robot robot, char c) {
         try {
             boolean upper = Character.isUpperCase(c);
             int code = KeyEvent.getExtendedKeyCodeForChar(c);
+
             if (code == KeyEvent.VK_UNDEFINED) return;
 
             if (upper) robot.keyPress(KeyEvent.VK_SHIFT);
+
             robot.keyPress(code);
             robot.keyRelease(code);
+
             if (upper) robot.keyRelease(KeyEvent.VK_SHIFT);
+
         } catch (Exception ignored) {}
     }
 }
