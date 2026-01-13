@@ -1,0 +1,20 @@
+# Flutter
+/build/
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+
+# Android
+android/.gradle/
+android/local.properties
+
+# Java
+*.class
+*.log
+target/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
